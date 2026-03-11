@@ -58,14 +58,16 @@ jobs:
           echo "数据已备份"
       - name: 切换到 data 分支（或创建）
         run: |
-          if git show-ref --verify --quiet refs/heads/data; then
-            git checkout data
-            git pull origin data
+          git fetch origin data || true   # 尝试获取远程分支，失败则忽略
+          if git show-ref --verify --quiet refs/remotes/origin/data; then
+            # 远程分支存在：强制将本地 data 分支重置到远程最新
+            git checkout -B data origin/data
           else
+            # 远程分支不存在：创建孤立分支
             git checkout --orphan data
           fi
-          git rm -rf --cached .
           git clean -fdx
+          
       - name: 将数据复制到工作区
         run: |
           cp -r /tmp/pss-data-backup/downloads/* .
