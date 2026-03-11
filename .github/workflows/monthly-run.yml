@@ -1,10 +1,10 @@
-# .github/workflows/run.yml
-name: 同步数据不同分支
+# .github/workflows/monthly-run.yml
+name: 每月自动更新
 
 on:
-  workflow_dispatch:
-#  schedule:
-#    - cron: '0 1 1 * *'    # 每个月1号 UTC时间1点00分执行
+  workflow_dispatch:       # 可以手动触发测试
+  schedule:
+    - cron: '0 1 1 * *'    # 每月 1号 1点 自动触发
 
 permissions:
   contents: write      # 授予写入权限
@@ -29,11 +29,11 @@ jobs:
           rm -rf downloads
           mkdir -p downloads
 
-      - name: 运行 Java 程序下载数据
+      - name: 运行 Java 程序下载并处理数据
         run: |
-          # 编译并运行你的程序（确保所有依赖已安装）
-          mvn clean compile
-          mvn exec:java -Dexec.mainClass="pssdemo.psssaledemo.TestMain" -Dexec.cleanupDaemonThreads=false
+          # 编译并运行
+          mvn clean install -pl pss-00-base -am
+          mvn -pl pss-01-pss exec:java -Dexec.mainClass="crawl.Main" -Dexec.cleanupDaemonThreads=false
 
       - name: 备份下载的数据到临时目录
         run: |
