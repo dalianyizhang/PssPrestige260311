@@ -1,0 +1,104 @@
+# .github/workflows/run.yml
+name: 同步数据不同分支
+
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: '0 1 1 * *'    # 每个月1号 UTC时间1点00分执行
+
+permissions:
+  contents: write      # 授予写入权限
+
+jobs:
+  sync-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+
+      - name: 清理旧的下载目录
+        run: |
+          rm -rf downloads
+          mkdir -p downloads
+
+      - name: 运行 Java 程序下载数据
+        run: |
+          # 编译并运行你的程序（确保所有依赖已安装）
+          mvn clean compile
+          mvn exec:java -Dexec.mainClass="pssdemo.psssaledemo.TestMain" -Dexec.cleanupDaemonThreads=false
+
+      - name: 备份下载的数据到临时目录
+        run: |
+          mkdir -p /tmp/pss-data-backup
+          # 复制整个 downloads 目录到备份位置
+          cp -r downloads /tmp/pss-data-backup/
+          echo "数据已备份到 /tmp/pss-data-backup"
+
+      - name: 切换到数据分支（或创建）
+        run: |
+          # 如果 data 分支已存在则切换并拉取最新，否则创建孤立分支
+          if git show-ref --verify --quiet refs/heads/data; then
+            git checkout data
+            git pull origin data
+          else
+            git checkout --orphan data
+          fi
+          # 清空工作区（保留 .git 目录），避免旧文件干扰
+          git rm -rf --cached .
+          git clean -fdx
+
+      - name: 将数据复制到工作区
+        run: |
+          cp -r /tmp/pss-data-backup/downloads/* .
+          rm -rf /tmp/pss-data-backup
+
+      - name: 更新 README 索引
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          # 如果 README 不存在则创建
+          if [ ! -f README.md ]; then
+            echo "# PSS XML Data Repository" > README.md
+            echo "" >> README.md
+            echo "此分支存储 每月1号自动下载的 XML 数据文件。" >> README.md
+          fi
+
+          # 追加今日更新信息
+          echo "" >> README.md
+          echo "## ${TODAY} 更新" >> README.md
+          echo "- 更新时间: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> README.md
+
+          # 如果今日的目录存在，列出文件
+          if [ -d "${TODAY}" ]; then
+            echo "- 文件数量: $(find "${TODAY}" -type f | wc -l)" >> README.md
+            echo "- 文件列表:" >> README.md
+            find "${TODAY}" -type f -exec basename {} \; | sed 's/^/  - /' >> README.md
+          fi
+
+      - name: 配置 Git 用户
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 设置远程 URL 使用 GITHUB_TOKEN
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+      - name: 提交并推送到 data 分支
+        run: |
+          git add .
+          if git diff --cached --quiet; then
+            echo "没有变更，跳过提交"
+          else
+            TODAY=$(date +%Y-%m-%d)
+            git commit -m "Add data for ${TODAY}"
+            git push origin data
+            echo "✅ 数据已推送到 data 分支"
+          fi
