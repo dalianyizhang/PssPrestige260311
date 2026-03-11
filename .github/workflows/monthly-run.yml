@@ -64,11 +64,11 @@ jobs:
         run: |
           if git show-ref --verify --quiet refs/heads/data; then
             git checkout data
-            git pull origin data
+            git fetch origin data
+            git reset --hard origin/data   # 丢弃本地所有未推送提交，强制与远程一致
           else
             git checkout --orphan data
           fi
-          git rm -rf --cached .
           git clean -fdx
 
       - name: 将数据复制到工作区
