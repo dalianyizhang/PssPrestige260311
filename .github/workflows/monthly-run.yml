@@ -59,6 +59,12 @@ jobs:
           cp -r /tmp/pss-data-backup/downloads/* .
           rm -rf /tmp/pss-data-backup
 
+      - name: 打包所有数据为 zip
+        run: |
+          # 打包所有文件（排除 .git 相关和 README.md，避免冲突）
+          zip -r data.zip * -x "*.git*" "README.md"
+          echo "已生成 data.zip"
+
       - name: 更新 README 索引
         run: |
           TODAY=$(date +%Y-%m-%d)
@@ -66,20 +72,13 @@ jobs:
           if [ ! -f README.md ]; then
             echo "# PSS XML Data Repository" > README.md
             echo "" >> README.md
-            echo "此分支存储 每月1号自动下载的 XML 数据文件。" >> README.md
+            echo "此分支存储 每月1号自动下载的zip数据文件。" >> README.md
           fi
 
           # 追加今日更新信息
           echo "" >> README.md
           echo "## ${TODAY} 更新" >> README.md
           echo "- 更新时间: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> README.md
-
-          # 如果今日的目录存在，列出文件
-          if [ -d "${TODAY}" ]; then
-            echo "- 文件数量: $(find "${TODAY}" -type f | wc -l)" >> README.md
-            echo "- 文件列表:" >> README.md
-            find "${TODAY}" -type f -exec basename {} \; | sed 's/^/  - /' >> README.md
-          fi
 
       - name: 配置 Git 用户
         run: |
@@ -92,7 +91,8 @@ jobs:
 
       - name: 提交并推送到 data 分支
         run: |
-          git add .
+          # 只添加 data.zip 和 README.md
+          git add data.zip README.md
           if git diff --cached --quiet; then
             echo "没有变更，跳过提交"
           else
