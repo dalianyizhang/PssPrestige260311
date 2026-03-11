@@ -81,11 +81,15 @@ jobs:
         run: |
           echo "DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
 
-      - name: 打包所有数据为 zip
+      - name: 打包 downloads 目录
         run: |
-          ZIP_NAME="合成数据_${DATE}.zip"
-          zip -r "${ZIP_NAME}" * -x "*.git*" "README.md"
-          echo "已生成 ${ZIP_NAME}"
+          cd /tmp/pss-data-backup/downloads
+          ZIP_NAME="合成数据_$(date +%Y%m%d).zip"
+          zip -r "${ZIP_NAME}" .
+          mv "${ZIP_NAME}" ${GITHUB_WORKSPACE}/
+          cd ${GITHUB_WORKSPACE}
+          rm -rf /tmp/pss-data-backup
+          echo "DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
           echo "ZIP_FILE=${ZIP_NAME}" >> $GITHUB_ENV
 
       - name: 更新 README 索引
