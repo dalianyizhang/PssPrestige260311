@@ -47,14 +47,18 @@ jobs:
         run: |
           rm -rf downloads
           mkdir -p downloads
+          ls -la downloads
       - name: 编译并运行 Java 程序下载数据
         run: |
           mvn clean install -pl pss-00-base -am
           mvn compile exec:java -pl pss-01-pss -Dexec.mainClass="crawl.Main" -Dexec.cleanupDaemonThreads=false
+          ls -laR downloads
       - name: 备份下载的数据到临时目录
         run: |
+          rm -rf /tmp/pss-data-backup
           mkdir -p /tmp/pss-data-backup
           cp -r downloads /tmp/pss-data-backup/
+          ls -laR /tmp/pss-data-backup/
           echo "数据已备份"
       - name: 切换到 data 分支（或创建）
         run: |
@@ -70,8 +74,9 @@ jobs:
           
       - name: 将数据复制到工作区
         run: |
-          cp -r /tmp/pss-data-backup/downloads/* .
-          rm -rf /tmp/pss-data-backup
+          cp -r /tmp/pss-data-backup/downloads/. .
+          echo "复制后工作区文件列表："
+          ls -la 
       # 设置日期变量（保持 UTC 时间，用于 zip 文件名）
       - name: 设置日期变量（UTC）
         run: |
