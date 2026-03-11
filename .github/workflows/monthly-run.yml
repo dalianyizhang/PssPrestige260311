@@ -29,11 +29,10 @@ jobs:
           rm -rf downloads
           mkdir -p downloads
 
-      - name: 运行 Java 程序下载并处理数据
+      - name: 编译并运行 Java 程序下载数据
         run: |
-          # 编译并运行
           mvn clean install -pl pss-00-base -am
-          mvn -pl pss-01-pss exec:java -Dexec.mainClass="crawl.Main" -Dexec.cleanupDaemonThreads=false
+          mvn compile exec:java -pl pss-01-pss -Dexec.mainClass="crawl.Main" -Dexec.cleanupDaemonThreads=false
 
       - name: 备份下载的数据到临时目录
         run: |
