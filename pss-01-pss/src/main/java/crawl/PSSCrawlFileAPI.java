@@ -6,13 +6,19 @@ import lombok.extern.log4j.Log4j;
 import pojo.Enums.Rarity;
 import utils.CSVUtils;
 import utils.CrawlHtml;
+import utils.FileUtils;
+import utils.XmlFileManager;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.Vector;
 import java.util.stream.Collectors;
 
 @Log4j
@@ -67,7 +73,36 @@ public class PSSCrawlFileAPI {
             CSVUtils.writeCsv(records, outputPath, "crew_" + rarity.index);
         }
 
+        // 1.5 下载并处理所有船员的图片
+        String sourceDir = outputPath + "/source";
+        CrewImageDownloader downloader = new CrewImageDownloader(sourceDir);
+        // 先下载好 XML文件
+        String characterXml = XmlFileManager.ensureListAllCharacterDesigns2Xml(sourceDir);
+        String spritesXml = XmlFileManager.ensureListSpritesXml(sourceDir);
+        crewDoList.parallelStream().forEach(crewDo -> {
+            downloader.getCrewImage(String.valueOf(crewDo.getId()));
+        });
+        try {
+            // 移动 crew 目录到 downloads 根目录
+            Path sourceCrew = Paths.get(sourceDir, "img", "crew");
+            Path destCrew = Paths.get(outputPath, "crew");
+            if (Files.exists(sourceCrew)) {
+                // 若目标 crew 已存在，先删除（递归）
+                if (Files.exists(destCrew)) {
+                    FileUtils.deleteDirectory(destCrew);  // 需要实现该方法
+                }
+                Files.move(sourceCrew, destCrew);
+                log.info("已移动 crew 目录到: " + destCrew);
+            }
 
+            Path sourceDirPath = Paths.get(sourceDir);
+            if (Files.exists(sourceDirPath)) {
+                FileUtils.deleteDirectory(sourceDirPath);
+                log.info("已删除中间目录: " + sourceDir);
+            }
+        } catch (IOException e) {
+            log.error("清理中间文件失败", e);
+        }
 
         // 2.爬取合成信息(这里是prestigeTo)
         // 2.1 筛选掉1/6星的船员
@@ -82,18 +117,18 @@ public class PSSCrawlFileAPI {
         collect
                 // .parallelStream()  // 不要启用！并行执行的大量查询会导致相当部分请求被拒绝，导致查询结果为空。
                 .forEach(crewDo -> {
-            String prestigeToUrl = String.format(PssUrl.PRESTIGE_TO, baseUrl, crewDo.getId());
-            List<PrestigeDo> prestigeDoList = crawlPrestige.parsePrestigeList(prestigeToUrl);
-            Vector<String[]> records = new Vector<>();
-            if (prestigeDoList.size() > 0) {
-                // 本地数据处理可以并行执行
-                prestigeDoList.parallelStream().forEach(prestigeDo -> records.add(prestigeDo.getData4Str()));
-            } else {
-                preTo.add(crewDo.getId());
-            }
-            records.add(0, PrestigeDo.getHeader4Str());
-            CSVUtils.writeCsv(records, outputPath, "prestige_to_" + crewDo.getId());
-        });
+                    String prestigeToUrl = String.format(PssUrl.PRESTIGE_TO, baseUrl, crewDo.getId());
+                    List<PrestigeDo> prestigeDoList = crawlPrestige.parsePrestigeList(prestigeToUrl);
+                    Vector<String[]> records = new Vector<>();
+                    if (prestigeDoList.size() > 0) {
+                        // 本地数据处理可以并行执行
+                        prestigeDoList.parallelStream().forEach(prestigeDo -> records.add(prestigeDo.getData4Str()));
+                    } else {
+                        preTo.add(crewDo.getId());
+                    }
+                    records.add(0, PrestigeDo.getHeader4Str());
+                    CSVUtils.writeCsv(records, outputPath, "prestige_to_" + crewDo.getId());
+                });
 
         // 3.爬取 prestigeFrom的合成信息
         List<CrewDo> collect2 = crewDoList.parallelStream()
@@ -106,20 +141,20 @@ public class PSSCrawlFileAPI {
         collect2
                 // .parallelStream() // 同上，尽量不要启用此处的并行处理！
                 .forEach(crewDo -> {
-            String prestigeFromUrl = String.format(PssUrl.PRESTIGE_FROM, baseUrl, crewDo.getId());
-            List<PrestigeDo> prestigeDoList = crawlPrestige.parsePrestigeList(prestigeFromUrl);
-            Vector<String[]> records = new Vector<>();
-            if (prestigeDoList.size() > 0) {
-                prestigeDoList.parallelStream()
-                        // 最终数据查询时的去重处理
-                        .filter(prestigeDo -> prestigeDo.getFirstSonId() <= prestigeDo.getSecondSonId())
-                        .forEach(prestigeDo -> records.add(prestigeDo.getData4Str()));
-            } else {
-                preFrom.add(crewDo.getId());
-            }
-            records.add(0, PrestigeDo.getHeader4Str());
-            CSVUtils.writeCsv(records, outputPath, "prestige_from_" + crewDo.getId());
-        });
+                    String prestigeFromUrl = String.format(PssUrl.PRESTIGE_FROM, baseUrl, crewDo.getId());
+                    List<PrestigeDo> prestigeDoList = crawlPrestige.parsePrestigeList(prestigeFromUrl);
+                    Vector<String[]> records = new Vector<>();
+                    if (prestigeDoList.size() > 0) {
+                        prestigeDoList.parallelStream()
+                                // 最终数据查询时的去重处理
+                                .filter(prestigeDo -> prestigeDo.getFirstSonId() <= prestigeDo.getSecondSonId())
+                                .forEach(prestigeDo -> records.add(prestigeDo.getData4Str()));
+                    } else {
+                        preFrom.add(crewDo.getId());
+                    }
+                    records.add(0, PrestigeDo.getHeader4Str());
+                    CSVUtils.writeCsv(records, outputPath, "prestige_from_" + crewDo.getId());
+                });
 
         // 4.写入valid_util.txt文件
         try {
