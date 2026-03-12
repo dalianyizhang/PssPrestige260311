@@ -4,10 +4,7 @@ import Do.CrewDo;
 import Do.PrestigeDo;
 import lombok.extern.log4j.Log4j;
 import pojo.Enums.Rarity;
-import utils.CSVUtils;
-import utils.CrawlHtml;
-import utils.FileUtils;
-import utils.XmlFileManager;
+import utils.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -79,9 +76,7 @@ public class PSSCrawlFileAPI {
         // 先下载好 XML文件
         String characterXml = XmlFileManager.ensureListAllCharacterDesigns2Xml(sourceDir);
         String spritesXml = XmlFileManager.ensureListSpritesXml(sourceDir);
-        crewDoList.parallelStream().forEach(crewDo -> {
-            downloader.getCrewImage(String.valueOf(crewDo.getId()));
-        });
+        crewDoList.parallelStream().forEach(crewDo -> downloader.getCrewImage(String.valueOf(crewDo.getId())));
         try {
             // 移动 crew 目录到 downloads 根目录
             Path sourceCrew = Paths.get(sourceDir, "img", "crew");
@@ -159,7 +154,7 @@ public class PSSCrawlFileAPI {
         // 4.写入valid_util.txt文件
         try {
             // 获取当天 UTC 日期，格式化为 yyyy-MM-dd
-            String today = LocalDate.now(ZoneOffset.UTC).toString();  // 默认 ISO 格式
+            String today = DateUtils.getValidUtilDate();
             // 构建文件路径
             Path filePath = Paths.get(outputPath, "valid_until.txt");
             // 确保目录存在（如果前面的操作没有创建目录，这里会自动创建）

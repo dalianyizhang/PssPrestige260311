@@ -4,6 +4,7 @@ import lombok.extern.log4j.Log4j;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -12,10 +13,22 @@ import java.util.Date;
 public class DateUtils {
 
     private static final String DATE_FORMAT = "yyyyMMdd";
-
     private static final String DATE_FORMAT2 = "yyyy";
-
     private static final String DATE_FORMAT3 = "MMdd";
+
+    public static String getValidUtilDate() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC); // 可指定时区
+        int month = today.getMonthValue();
+        if (month <= 3) {
+            return today.getYear() + "-04-01";
+        } else if (month <= 6) {
+            return today.getYear() + "-07-01";
+        } else if (month <= 9) {
+            return today.getYear() + "-10-01";
+        } else {
+            return (today.getYear() + 1) + "-01-01";
+        }
+    }
 
     public static String getLastUpdateDate() {
         // 0101 0401 0701 1001
@@ -37,7 +50,6 @@ public class DateUtils {
     /**
      * 获取当前日期的时间戳
      *
-     * @return
      */
     public static String getNowDate() {
         Date now = new Date();
@@ -46,9 +58,6 @@ public class DateUtils {
 
     /**
      * 获取指定日期到今天的天数
-     *
-     * @param dateStr
-     * @return
      */
     public static Integer calcDays2Today(String dateStr) {
         return calcDays(dateStr, getNowDate());
@@ -56,10 +65,6 @@ public class DateUtils {
 
     /**
      * 获取两日期间隔的天数
-     *
-     * @param dateStr1
-     * @param dateStr2
-     * @return
      */
     public static Integer calcDays(String dateStr1, String dateStr2) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
