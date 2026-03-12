@@ -56,14 +56,16 @@ jobs:
       - name: 整理数据并打包为 zip
         run: |
           cd downloads
-          # 设置日期变量（UTC+8）
-          echo "DATE=$(TZ='Asia/Shanghai' date +%Y%m%d)" >> $GITHUB_ENV
-          # 设置文件名
-          echo "ZIP_FILE=${ZIP_NAME}" >> $GITHUB_ENV
-          # 打包当前目录所有文件
+          # 1. 使用 shell 变量定义日期和文件名
+          DATE=$(TZ='Asia/Shanghai' date +%Y%m%d)
+          ZIP_NAME="合成数据_${DATE}.zip"
+          # 2. 打包当前目录所有文件
           zip -r "../${ZIP_NAME}" *
           cd ..
           echo "打包完成，生成文件: $(ls -la ${ZIP_NAME})"
+          # 3. 将变量写入 GITHUB_ENV，供后续步骤使用
+          echo "DATE=${DATE}" >> $GITHUB_ENV
+          echo "ZIP_FILE=${ZIP_NAME}" >> $GITHUB_ENV
           
       - name: 备份zip数据包到临时目录
         run: |
