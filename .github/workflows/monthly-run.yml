@@ -75,15 +75,15 @@ jobs:
           ls -la /tmp/pss-data-backup/
           echo "zip 包已备份"
           
+      - name: 删除工作区的临时 zip 文件
+        run: rm -f ${ZIP_FILE}
+
       - name: 切换到 data 分支（或创建）
         run: |
-          # 尝试获取远程分支，失败则忽略
           git fetch origin data || true
           if git show-ref --verify --quiet refs/remotes/origin/data; then
-            # 远程分支存在：强制将本地 data 分支重置到远程最新
             git checkout -B data origin/data
           else
-            # 远程分支不存在：创建孤立分支
             git checkout --orphan data
           fi
           git clean -fdx
