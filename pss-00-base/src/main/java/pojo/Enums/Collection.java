@@ -32,7 +32,8 @@ public enum Collection {
     TASK_FORCE_XMAS("圣诞特遣队", "task_force_xmas", 22),
     THE_VOID("虚空","the_void",  25),
     VISIRI("虫族", "visiri", 14),
-    Cyanide_Happiness("","cyanide_happiness",35),
+    CYANIDE_HAPPINESS("氰化物","cyanide_happiness",35),
+    SECTION_9("第九节","Section_9",34),
 
     NEW("新增/缺失","new",999);
 
