@@ -3,22 +3,22 @@ name: 每月自动更新
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 1 1 * *'    # 每月 1 号 1 点 UTC
+    - cron: '0 1 1 * *'          # 每月 1 号 1:00 UTC（北京时间 9:00）
+    - cron: '0 5 1-10 4 *'       # 4 月 1-10 日 5:00 UTC（北京时间 13:00）
 
 permissions:
   contents: write
 
 jobs:
-  # 检查当前北京时间是否在 2026-01-01 至 2027-12-31 之间
+  # 检查年份范围（2026-2027）
   check-date:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
-      - name: 检查日期范围（北京时间）
+      - name: 检查年份范围（北京时间）
         id: check
         run: |
-          # 使用北京时间获取当前日期（格式 YYYYMMDD）
           BEIJING_DATE=$(TZ='Asia/Shanghai' date +%Y%m%d)
           START=20260101
           END=20271231
@@ -29,9 +29,29 @@ jobs:
             echo "should_run=false" >> $GITHUB_OUTPUT
             echo "⏭️ 当前北京时间 $BEIJING_DATE 不在有效范围内，跳过同步"
           fi
+
+  # 检查是否为 4 月 1-10 日（用于新调度）
+  check-april:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.april.outputs.should_run }}
+    steps:
+      - name: 检查是否在 4 月 1-10 日（北京时间）
+        id: april
+        run: |
+          DAY=$(TZ='Asia/Shanghai' date +%d)
+          MONTH=$(TZ='Asia/Shanghai' date +%m)
+          if [ "$MONTH" = "04" ] && [ "$DAY" -ge 1 ] && [ "$DAY" -le 10 ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
   sync-data:
-    needs: check-date
-    if: needs.check-date.outputs.should_run == 'true'
+    needs: [check-date, check-april]
+    if: |
+      (needs.check-date.outputs.should_run == 'true') ||
+      (needs.check-april.outputs.should_run == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
@@ -47,12 +67,12 @@ jobs:
         run: |
           rm -rf downloads
           mkdir -p downloads
-          
+
       - name: 编译并运行 Java 程序下载数据
         run: |
           mvn clean install -pl pss-00-base -am
           mvn compile exec:java -pl pss-01-pss -Dexec.mainClass="crawl.Main" -Dexec.cleanupDaemonThreads=false
-          
+
       - name: 整理数据并打包为 zip
         run: |
           cd downloads
@@ -66,7 +86,7 @@ jobs:
           # 3. 将变量写入 GITHUB_ENV，供后续步骤使用
           echo "DATE=${DATE}" >> $GITHUB_ENV
           echo "ZIP_FILE=${ZIP_NAME}" >> $GITHUB_ENV
-          
+
       - name: 备份zip数据包到临时目录
         run: |
           rm -rf /tmp/pss-data-backup
@@ -74,7 +94,7 @@ jobs:
           cp ${ZIP_FILE} /tmp/pss-data-backup/
           ls -la /tmp/pss-data-backup/
           echo "zip 包已备份"
-          
+
       - name: 删除工作区的临时 zip 文件
         run: rm -f ${ZIP_FILE}
 
@@ -87,12 +107,12 @@ jobs:
             git checkout --orphan data
           fi
           git clean -fdx
-          
+
       - name: 将 zip 包复制到工作区
         run: |
           cp /tmp/pss-data-backup/${ZIP_FILE} .
           ls -la
-          
+
       - name: 更新 README 索引
         run: |
           if [ ! -f README.md ]; then
@@ -103,16 +123,16 @@ jobs:
           echo "" >> README.md
           echo "## ${DATE} 更新" >> README.md
           echo "- 更新时间: $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')" >> README.md
-      
+
       - name: 配置 Git 用户
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
       - name: 设置远程 URL 使用 GITHUB_TOKEN
         run: |
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-      
+
       - name: 提交并推送到 data 分支
         run: |
           git add "${ZIP_FILE}" README.md
